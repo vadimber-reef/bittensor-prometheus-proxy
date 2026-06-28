@@ -30,8 +30,8 @@ retries = Retry(
 TIMEOUT = 15
 
 session = requests.Session()
-session.mount('http://', HTTPAdapter(max_retries=retries))
-session.mount('https://', HTTPAdapter(max_retries=retries))
+session.mount("http://", HTTPAdapter(max_retries=retries))
+session.mount("https://", HTTPAdapter(max_retries=retries))
 
 
 @csrf_exempt
@@ -43,16 +43,16 @@ def prometheus_outbound_proxy(request):
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=msg.encode())
     data = request.body
 
-    prometheus_remote_url = urljoin(settings.CENTRAL_PROMETHEUS_PROXY_URL, 'prometheus_inbound_proxy/')
+    prometheus_remote_url = urljoin(settings.CENTRAL_PROMETHEUS_PROXY_URL, "prometheus_inbound_proxy/")
 
     try:
         response = session.post(
             prometheus_remote_url,
             data=data,
             headers={
-                'Bittensor-Signature': settings.BITTENSOR_WALLET().hotkey.sign(data).hex(),
-                'Bittensor-Hotkey': settings.BITTENSOR_WALLET().hotkey.ss58_address,
-                'Bittensor-Netuid': str(settings.BITTENSOR_NETUID),
+                "Bittensor-Signature": settings.BITTENSOR_WALLET().hotkey.sign(data).hex(),
+                "Bittensor-Hotkey": settings.BITTENSOR_WALLET().hotkey.ss58_address,
+                "Bittensor-Netuid": str(settings.BITTENSOR_NETUID),
                 **request.headers,
             },
             timeout=TIMEOUT,
@@ -64,10 +64,12 @@ def prometheus_outbound_proxy(request):
     logger.debug(f"Central prometheus proxy replied with {response.status_code}, {response.content[:200]}")
     return HttpResponse(
         status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in [
-            'connection', 'keep-alive', 'public',
-            'proxy-authenticate', 'transfer-encoding', 'upgrade'
-        ]},
+        headers={
+            k: v
+            for k, v in response.headers.items()
+            if k.lower()
+            not in ["connection", "keep-alive", "public", "proxy-authenticate", "transfer-encoding", "upgrade"]
+        },
         content=response.content,
     )
 
@@ -108,6 +110,7 @@ def prometheus_inbound_proxy(request):
         return HttpResponse(status=HTTPStatus.FORBIDDEN, content=msg)
 
     import bittensor
+
     sender_keypair = bittensor.Keypair(ss58_address)
     if not sender_keypair.verify(data, "0x" + signature):
         msg = "Bad signature."

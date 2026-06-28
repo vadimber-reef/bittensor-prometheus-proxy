@@ -38,8 +38,7 @@ def fetch_validators():
     try:
         contact = subtensor_contact()
         keys_by_netuid: dict[int, set[str]] = {
-            netuid: set(contact.get_validator_hotkeys(netuid))
-            for netuid in settings.BITTENSOR_NETUIDS
+            netuid: set(contact.get_validator_hotkeys(netuid)) for netuid in settings.BITTENSOR_NETUIDS
         }
     except Exception as exc:
         last_success = cache.get(LAST_SUCCESS_KEY)

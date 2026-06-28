@@ -64,6 +64,7 @@ type_check = [
 [tool.ruff]
 src = ["app/src"]
 line-length = 120
+exclude = ["**/prometheus_protobuf/**.py"]
 
 [tool.ruff.lint]
 # TODO add D

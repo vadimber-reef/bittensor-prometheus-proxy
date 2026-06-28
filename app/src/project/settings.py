@@ -1,6 +1,7 @@
 """
 Django settings for project project.
 """
+
 import functools
 import inspect
 import logging
@@ -247,14 +248,14 @@ CONSTANCE_CONFIG = {
 
 if REDIS_HOST:
     CACHEOPS_REDIS = {
-        'host': REDIS_HOST,
-        'port': REDIS_PORT,
-        'db': 1,
-        'socket_timeout': 3,
+        "host": REDIS_HOST,
+        "port": REDIS_PORT,
+        "db": 1,
+        "socket_timeout": 3,
     }
 
     CACHEOPS = {
-        'project.core.Validator': {'ops': 'all', 'timeout': 60*15},
+        "project.core.Validator": {"ops": "all", "timeout": 60 * 15},
     }
 
     CACHEOPS_DEGRADE_ON_FAILURE = True
@@ -357,8 +358,9 @@ if UPSTREAM_PROMETHEUS_URL:
     if not PYLON_ENDPOINT:
         raise RuntimeError("PYLON_ENDPOINT must be set when UPSTREAM_PROMETHEUS_URL is defined")
     if not DATABASES:
-        raise RuntimeError("Either DATABASE_POOL_URL or DATABASE_URL must be set when "
-                           "UPSTREAM_PROMETHEUS_URL is defined")
+        raise RuntimeError(
+            "Either DATABASE_POOL_URL or DATABASE_URL must be set when UPSTREAM_PROMETHEUS_URL is defined"
+        )
     if not REDIS_HOST:
         raise RuntimeError("REDIS_HOST must be set when UPSTREAM_PROMETHEUS_URL is defined")
 
@@ -377,13 +379,16 @@ if CENTRAL_PROMETHEUS_PROXY_URL:
     if BITTENSOR_NETUID is None:
         raise RuntimeError("BITTENSOR_NETUID must be set when CENTRAL_PROMETHEUS_PROXY_URL is defined")
     if BITTENSOR_WALLET_NAME is None or BITTENSOR_WALLET_HOTKEY_NAME is None:
-        raise RuntimeError("Both BITTENSOR_WALLET_NAME and BITTENSOR_WALLET_HOTKEY_NAME must be set when "
-                           "CENTRAL_PROMETHEUS_PROXY_URL is defined")
+        raise RuntimeError(
+            "Both BITTENSOR_WALLET_NAME and BITTENSOR_WALLET_HOTKEY_NAME must be set when "
+            "CENTRAL_PROMETHEUS_PROXY_URL is defined"
+        )
 
 
 @functools.cache
 def BITTENSOR_WALLET():
     import bittensor
+
     if not BITTENSOR_WALLET_NAME or not BITTENSOR_WALLET_HOTKEY_NAME:
         raise RuntimeError("Wallet not configured")
     wallet = bittensor.wallet(
