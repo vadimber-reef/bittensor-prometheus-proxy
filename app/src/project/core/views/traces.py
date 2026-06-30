@@ -11,7 +11,14 @@ from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
 
 from ..contact import tempo_contact
 from ..proxy_auth import validate_bittensor_request
-from ..proxy_outbound import HOP_BY_HOP_HEADERS, TIMEOUT, build_bittensor_outbound_headers, session
+from ..proxy_outbound import (
+    TIMEOUT,
+    build_bittensor_outbound_headers,
+    build_forwarded_request_headers,
+    build_forwarded_response,
+    decompress_body,
+    session,
+)
 
 logger = structlog.getLogger(__name__)
 
@@ -59,18 +66,18 @@ def traces_outbound_proxy(request):
         logger.error(msg)
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=msg.encode())
 
-    data = request.body
+    data = decompress_body(request.body, request.headers)
 
     write_request, err = _parse_traces(data)
     if err:
         return err
 
     wallet = settings.BITTENSOR_WALLET()
-    hotkey = wallet.hotkey.ss58_address
+    hotkey = wallet.hotkey
     netuid_str = str(settings.BITTENSOR_NETUID)
 
     for resource_spans in write_request.resource_spans:
-        _upsert_string_attr(resource_spans.resource.attributes, "hotkey", hotkey)
+        _upsert_string_attr(resource_spans.resource.attributes, "hotkey", hotkey.ss58_address)
         _upsert_string_attr(resource_spans.resource.attributes, "netuid", netuid_str)
 
     modified_data = write_request.SerializeToString()
@@ -81,19 +88,15 @@ def traces_outbound_proxy(request):
             tempo_remote_url,
             data=modified_data,
             headers={
-                **request.headers,
-                **build_bittensor_outbound_headers(modified_data, wallet.hotkey, settings.BITTENSOR_NETUID),
+                **build_forwarded_request_headers(request.headers),
+                **build_bittensor_outbound_headers(modified_data, hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,
         )
     except requests.exceptions.RequestException as e:
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=type(e).__name__)
 
-    return HttpResponse(
-        status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
-        content=response.content,
-    )
+    return build_forwarded_response(response)
 
 
 @csrf_exempt
@@ -123,11 +126,7 @@ def traces_inbound_proxy(request):
     except requests.exceptions.RequestException as e:
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=type(e).__name__)
 
-    return HttpResponse(
-        status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
-        content=response.content,
-    )
+    return build_forwarded_response(response)
 
 
 urlpatterns = [

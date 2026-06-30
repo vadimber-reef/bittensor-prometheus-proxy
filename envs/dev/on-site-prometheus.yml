@@ -11,4 +11,4 @@ scrape_configs:
           hotkey: '{hotkey}'
 
 remote_write:
-  - url: "http://host.docker.internal:8000/prometheus_outbound_proxy/"
+  - url: "http://host.docker.internal:8000/prometheus/outbound"

@@ -12,7 +12,13 @@ from django.views.decorators.http import require_POST
 from ..metrics import metrics_counter, series_counter
 from ..prometheus_protobuf import remote_pb2
 from ..proxy_auth import validate_bittensor_request
-from ..proxy_outbound import HOP_BY_HOP_HEADERS, TIMEOUT, build_bittensor_outbound_headers, session
+from ..proxy_outbound import (
+    TIMEOUT,
+    build_bittensor_outbound_headers,
+    build_forwarded_request_headers,
+    build_forwarded_response,
+    session,
+)
 
 logger = structlog.getLogger(__name__)
 
@@ -50,7 +56,7 @@ def prometheus_outbound_proxy(request):
             prometheus_remote_url,
             data=data,
             headers={
-                **request.headers,
+                **build_forwarded_request_headers(request.headers),
                 **build_bittensor_outbound_headers(data, wallet.hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,
@@ -60,11 +66,7 @@ def prometheus_outbound_proxy(request):
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=type(e).__name__)
 
     logger.debug(f"Central prometheus proxy replied with {response.status_code}, {response.content[:200]}")
-    return HttpResponse(
-        status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
-        content=response.content,
-    )
+    return build_forwarded_response(response)
 
 
 @csrf_exempt
@@ -116,17 +118,13 @@ def prometheus_inbound_proxy(request):
         response = session.post(
             prometheus_remote_url,
             data=data,
-            headers=request.headers,
+            headers=build_forwarded_request_headers(request.headers),
             timeout=TIMEOUT,
         )
     except requests.exceptions.RequestException as e:
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=type(e).__name__)
 
-    return HttpResponse(
-        status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
-        content=response.content,
-    )
+    return build_forwarded_response(response)
 
 
 urlpatterns = [
