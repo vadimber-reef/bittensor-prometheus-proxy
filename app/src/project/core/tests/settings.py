@@ -3,6 +3,8 @@ import os
 # Hard-override so central validation (BITTENSOR_NETUIDS, PYLON_ENDPOINT) doesn't run.
 # .env is still read (provides DATABASE_URL, SECRET_KEY, etc.) because ENV is not forced.
 os.environ["UPSTREAM_PROMETHEUS_URL"] = ""
+os.environ.setdefault("UPSTREAM_TEMPO_URL", "")
+os.environ.setdefault("CENTRAL_TEMPO_PROXY_URL", "")
 os.environ.setdefault("DEBUG_TOOLBAR", "False")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-prod")
 # On-site mode for tests

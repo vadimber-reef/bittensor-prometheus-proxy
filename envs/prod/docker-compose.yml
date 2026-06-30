@@ -181,9 +181,24 @@ services:
     restart: unless-stopped
     logging:
       <<: *logging
-  
 
-  
+  alloy:
+    image: grafana/alloy:latest
+    restart: unless-stopped
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    environment:
+      - ON_SITE_PROXY_URL=${ON_SITE_PROXY_URL:-http://host.docker.internal:8000}
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    command: run --stability.level=experimental /etc/alloy/config.alloy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      <<: *logging
+
+
   bittensor-pylon:
     image: docker.io/backenddevelopersltd/bittensor-pylon:2.2.0
     restart: unless-stopped

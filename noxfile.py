@@ -153,9 +153,29 @@ def test(session):
             "-vv",
             "-n",
             "auto",
+            "-m",
+            "not integration",
             "project",
             *session.posargs,
             # bittensor unconditionally creates ~/.bittensor/miners on import;
             # redirect HOME so it has a writable location in restricted CI environments
+            env={"HOME": tempfile.gettempdir()},
+        )
+
+
+@nox.session(python=PYTHON_DEFAULT_VERSION, name="test_integration")
+def test_integration(session):
+    install(session, "test")
+    with session.chdir(str(APP_ROOT)):
+        session.run(
+            "pytest",
+            "-W",
+            "ignore::DeprecationWarning",
+            "-s",
+            "-vv",
+            "-m",
+            "integration",
+            "project",
+            *session.posargs,
             env={"HOME": tempfile.gettempdir()},
         )

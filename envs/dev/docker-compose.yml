@@ -73,3 +73,31 @@ services:
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|boot|var/.+)($$|/)'
 
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo.yml
+    ports:
+      - "3200:3200"
+      - "4319:4319"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3200/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  alloy:
+    image: grafana/alloy:latest
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - ON_SITE_PROXY_URL=${ON_SITE_PROXY_URL:-http://host.docker.internal:8000}
+    command: run --stability.level=experimental /etc/alloy/config.alloy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+

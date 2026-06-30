@@ -1,38 +1,20 @@
 from http import HTTPStatus
-from urllib.parse import urljoin
 
 import requests
 import snappy
 import structlog
 from django.conf import settings
 from django.http import HttpResponse
+from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
 
-from project.core.models import Validator
-
-from .metrics import metrics_counter, series_counter
-from .prometheus_protobuf import remote_pb2
+from ..metrics import metrics_counter, series_counter
+from ..prometheus_protobuf import remote_pb2
+from ..proxy_auth import validate_bittensor_request
+from ..proxy_outbound import HOP_BY_HOP_HEADERS, TIMEOUT, build_bittensor_outbound_headers, session
 
 logger = structlog.getLogger(__name__)
-retries = Retry(
-    total=3,
-    connect=3,
-    read=3,
-    redirect=3,
-    backoff_factor=0.1,
-    status_forcelist=(),
-    raise_on_status=False,
-    allowed_methods=False,  # default excludes POST; False retries all methods (safe here since Prometheus remote write is idempotent)
-)
-
-TIMEOUT = 15
-
-session = requests.Session()
-session.mount("http://", HTTPAdapter(max_retries=retries))
-session.mount("https://", HTTPAdapter(max_retries=retries))
 
 
 def _validate_timeseries(ts, ss58_address: str) -> tuple[str | None, str]:
@@ -60,7 +42,7 @@ def prometheus_outbound_proxy(request):
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=msg.encode())
     data = request.body
 
-    prometheus_remote_url = urljoin(settings.CENTRAL_PROMETHEUS_PROXY_URL, "prometheus_inbound_proxy/")
+    prometheus_remote_url = f"{settings.CENTRAL_PROMETHEUS_PROXY_URL.rstrip('/')}/prometheus/inbound"
 
     wallet = settings.BITTENSOR_WALLET()
     try:
@@ -69,9 +51,7 @@ def prometheus_outbound_proxy(request):
             data=data,
             headers={
                 **request.headers,
-                "Bittensor-Signature": wallet.hotkey.sign(data).hex(),
-                "Bittensor-Hotkey": wallet.hotkey.ss58_address,
-                "Bittensor-Netuid": str(settings.BITTENSOR_NETUID),
+                **build_bittensor_outbound_headers(data, wallet.hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,
         )
@@ -82,12 +62,7 @@ def prometheus_outbound_proxy(request):
     logger.debug(f"Central prometheus proxy replied with {response.status_code}, {response.content[:200]}")
     return HttpResponse(
         status=response.status_code,
-        headers={
-            k: v
-            for k, v in response.headers.items()
-            if k.lower()
-            not in ["connection", "keep-alive", "public", "proxy-authenticate", "transfer-encoding", "upgrade"]
-        },
+        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
         content=response.content,
     )
 
@@ -101,39 +76,10 @@ def prometheus_inbound_proxy(request):
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=msg.encode())
 
     data = request.body
-    ss58_address = request.headers.get("Bittensor-Hotkey")
-    signature = request.headers.get("Bittensor-Signature")
-    netuid_raw = request.headers.get("Bittensor-Netuid")
-
-    if not ss58_address or not signature or not netuid_raw:
-        msg = "Missing required headers."
-        logger.debug(msg)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, content=msg)
-
-    try:
-        netuid = int(netuid_raw)
-    except ValueError:
-        msg = "Invalid Bittensor-Netuid header."
-        logger.debug(msg)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, content=msg)
-
-    if netuid not in settings.BITTENSOR_NETUIDS:
-        msg = f"Netuid not supported: {netuid}"
-        logger.debug(msg)
-        return HttpResponse(status=HTTPStatus.FORBIDDEN, content=msg)
-
-    if not Validator.objects.filter(active=True, netuid=netuid, public_key=ss58_address).exists():
-        msg = "Validator not active."
-        logger.debug(msg)
-        return HttpResponse(status=HTTPStatus.FORBIDDEN, content=msg)
-
-    import bittensor
-
-    sender_keypair = bittensor.Keypair(ss58_address)
-    if not sender_keypair.verify(data, "0x" + signature):
-        msg = "Bad signature."
-        logger.debug(msg)
-        return HttpResponse(status=HTTPStatus.BAD_REQUEST, content=msg)
+    auth_result = validate_bittensor_request(request, data)
+    if isinstance(auth_result, HttpResponse):
+        return auth_result
+    ss58_address, _netuid = auth_result
 
     try:
         decompressed_data = snappy.uncompress(data)
@@ -164,7 +110,7 @@ def prometheus_inbound_proxy(request):
     metrics_counter.labels(ss58_address).inc(len(metrics))
     logger.debug("%s sent %s metrics and %s series", ss58_address, len(metrics), series_count)
 
-    prometheus_remote_url = urljoin(settings.UPSTREAM_PROMETHEUS_URL, "api/v1/write")
+    prometheus_remote_url = f"{settings.UPSTREAM_PROMETHEUS_URL.rstrip('/')}/api/v1/write"
 
     try:
         response = session.post(
@@ -178,6 +124,12 @@ def prometheus_inbound_proxy(request):
 
     return HttpResponse(
         status=response.status_code,
-        headers=response.headers,
+        headers={k: v for k, v in response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS},
         content=response.content,
     )
+
+
+urlpatterns = [
+    path("inbound", prometheus_inbound_proxy),
+    path("outbound", prometheus_outbound_proxy),
+]

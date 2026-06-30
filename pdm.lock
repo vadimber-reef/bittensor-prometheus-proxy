@@ -5,7 +5,7 @@
 groups = ["default", "lint", "test", "type-check"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a05f62607dbbb7065f74e6ba518867bdc70e8563d1fc48aa1f4b7ded0fdcf35e"
+content_hash = "sha256:ad53f67595bc19482f9f0d4968c6072559bc978417d59d8cd0f91798f28bd437"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -1418,6 +1418,20 @@ files = [
     {file = "numpy-2.3.2-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:aa098a5ab53fa407fded5870865c6275a5cd4101cfdef8d6fafc48286a96e981"},
     {file = "numpy-2.3.2-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:6936aff90dda378c09bea075af0d9c675fe3a977a9d2402f95a87f440f59f619"},
     {file = "numpy-2.3.2.tar.gz", hash = "sha256:e0486a11ec30cdecb53f184d496d1c6a20786c81e55e41640270130056f8ee48"},
+]
+
+[[package]]
+name = "opentelemetry-proto"
+version = "1.43.0"
+requires_python = ">=3.10"
+summary = "OpenTelemetry Python Proto"
+groups = ["default"]
+dependencies = [
+    "protobuf<8.0,>=5.0",
+]
+files = [
+    {file = "opentelemetry_proto-1.43.0-py3-none-any.whl", hash = "sha256:c58f1f7ef84bc7dc2834016c0c37fe0081dde7ca9f6339be1970fbf9cdaaa90d"},
+    {file = "opentelemetry_proto-1.43.0.tar.gz", hash = "sha256:224778df17e1f3fafeaaa21d874236ca5f6ffc2f86e0899298ec7351aac27924"},
 ]
 
 [[package]]
