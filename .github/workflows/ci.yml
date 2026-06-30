@@ -45,6 +45,8 @@ jobs:
         run: docker compose up -d --wait
       - name: Run migrations
         run: cd app/src && pdm run python manage.py wait_for_database --timeout 120 && pdm run python manage.py migrate
+        env:
+          HOME: /tmp
       - name: Run unit tests
         run: nox -vs test
       - name: Stop dockerized services
