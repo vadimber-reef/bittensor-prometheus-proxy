@@ -1,3 +1,4 @@
+import functools
 from abc import ABC, abstractmethod
 
 from django.conf import settings
@@ -22,11 +23,6 @@ class SubtensorContact(AbstractSubtensorContact):
         return [str(neuron.hotkey) for neuron in response.validators]
 
 
-_contact_instance: AbstractSubtensorContact | None = None
-
-
+@functools.cache
 def subtensor_contact() -> AbstractSubtensorContact:
-    global _contact_instance
-    if _contact_instance is None:
-        _contact_instance = SubtensorContact()
-    return _contact_instance
+    return SubtensorContact()
