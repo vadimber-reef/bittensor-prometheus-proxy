@@ -239,6 +239,12 @@ if (REDIS_HOST is None) != (REDIS_PORT is None):
 
 if REDIS_HOST:
     REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/2",
+        }
+    }
 
 CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
 CONSTANCE_CONFIG = {

@@ -35,7 +35,7 @@ though) and to the central prometheus. Starting celery and celery beat is not, h
 because instead of having a periodic task populate the validator list, one can add records to it manually using
 
 ```bash
-python manage.py debug_add_validator <hotkey>
+python manage.py debug_add_validator <hotkey> --netuid <netuid>
 ```
 
 # Setup production environment (git deployment)
