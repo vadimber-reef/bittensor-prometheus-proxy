@@ -15,7 +15,6 @@ from ..proxy_auth import validate_bittensor_request
 from ..proxy_outbound import (
     TIMEOUT,
     build_bittensor_outbound_headers,
-    build_forwarded_request_headers,
     build_forwarded_response,
     session,
 )
@@ -56,7 +55,7 @@ def prometheus_outbound_proxy(request):
             prometheus_remote_url,
             data=data,
             headers={
-                **build_forwarded_request_headers(request.headers),
+                **request.headers,
                 **build_bittensor_outbound_headers(data, wallet.hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,
@@ -118,7 +117,7 @@ def prometheus_inbound_proxy(request):
         response = session.post(
             prometheus_remote_url,
             data=data,
-            headers=build_forwarded_request_headers(request.headers),
+            headers=dict(request.headers),
             timeout=TIMEOUT,
         )
     except requests.exceptions.RequestException as e:

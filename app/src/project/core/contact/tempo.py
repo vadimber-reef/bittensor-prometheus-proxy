@@ -1,3 +1,4 @@
+import functools
 from abc import ABC, abstractmethod
 
 import requests
@@ -19,11 +20,6 @@ class TempoContact(AbstractTempoContact):
         return session.post(url, data=data, headers={"Content-Type": content_type}, timeout=TIMEOUT)
 
 
-_contact_instance: AbstractTempoContact | None = None
-
-
+@functools.cache
 def tempo_contact() -> AbstractTempoContact:
-    global _contact_instance
-    if _contact_instance is None:
-        _contact_instance = TempoContact()
-    return _contact_instance
+    return TempoContact()

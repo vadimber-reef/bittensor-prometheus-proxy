@@ -12,9 +12,9 @@ from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
 from ..contact import tempo_contact
 from ..proxy_auth import validate_bittensor_request
 from ..proxy_outbound import (
+    BODY_ENCODING_HEADERS,
     TIMEOUT,
     build_bittensor_outbound_headers,
-    build_forwarded_request_headers,
     build_forwarded_response,
     decompress_body,
     session,
@@ -88,7 +88,7 @@ def traces_outbound_proxy(request):
             tempo_remote_url,
             data=modified_data,
             headers={
-                **build_forwarded_request_headers(request.headers),
+                **{k: v for k, v in request.headers.items() if k.lower() not in BODY_ENCODING_HEADERS},
                 **build_bittensor_outbound_headers(modified_data, hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,
