@@ -188,5 +188,5 @@ def test_fetch_validators__tracks_last_success_per_netuid(mock_logger, mock_cont
 
     assert cache.get(last_success_key(12)) is not None
     assert cache.get(last_success_key(22)) is None  # not updated on failure
-    mock_logger.info.assert_called_once()   # netuid 12 success log
+    mock_logger.info.assert_called_once()  # netuid 12 success log
     mock_logger.error.assert_called_once()  # netuid 22: no prior success → error
