@@ -3,7 +3,7 @@ from django.db import models
 
 class Validator(models.Model):
     public_key = models.TextField()
-    netuid = models.IntegerField(default=0)
+    netuid = models.IntegerField(default=-1)
     active = models.BooleanField()
     debug = models.BooleanField(default=False)
 

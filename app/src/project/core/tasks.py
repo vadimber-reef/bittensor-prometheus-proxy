@@ -41,7 +41,9 @@ def send_to_dead_letter_queue(task: Task, exc, task_id, args, kwargs, einfo):
 
 def _log_failure(exc: Exception, netuid: int) -> None:
     last_success = cache.get(last_success_key(netuid))
-    if last_success is None or time.time() - last_success > FAILURE_ERROR_THRESHOLD:
+    if last_success is None:
+        logger.error("fetch_validators has never succeeded", netuid=netuid, exc_info=exc)
+    elif time.time() - last_success > FAILURE_ERROR_THRESHOLD:
         logger.error("fetch_validators has been failing for more than 2 hours", netuid=netuid, exc_info=exc)
     else:
         logger.info("fetch_validators failed, will retry", netuid=netuid, exc_info=exc)

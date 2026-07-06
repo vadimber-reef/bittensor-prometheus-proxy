@@ -107,10 +107,6 @@ def test_inbound__valid_request_forwarded(mock_session, client):
 
 
 @pytest.mark.django_db
-@override_settings(
-    CENTRAL_PROMETHEUS_PROXY_URL="http://test-central",
-    BITTENSOR_NETUID=12,
-)
 @patch("project.core.views.session")
 @patch("project.core.views.settings")
 def test_outbound__sends_netuid_header(mock_settings, mock_session, client):

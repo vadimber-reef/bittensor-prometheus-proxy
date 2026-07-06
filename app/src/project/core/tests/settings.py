@@ -14,3 +14,9 @@ os.environ.setdefault("BITTENSOR_WALLET_HOTKEY_NAME", "test-hotkey")
 from project.settings import *  # noqa: E402,F403
 
 PROMETHEUS_EXPORT_MIGRATIONS = False
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}

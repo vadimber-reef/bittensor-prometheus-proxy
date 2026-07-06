@@ -4,7 +4,7 @@ from django.db import migrations, models
 def set_netuid_to_12(apps, schema_editor):
     # Before multi-netuid support, this proxy exclusively served compute horde (netuid 12).
     # Backfill existing rows so they remain valid after the migration instead of getting
-    # stranded with the placeholder default of 0.
+    # stranded with the placeholder default of -1.
     Validator = apps.get_model("core", "Validator")
     Validator.objects.update(netuid=12)
 
@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="validator",
             name="netuid",
-            field=models.IntegerField(default=0),
+            field=models.IntegerField(default=-1),
         ),
         migrations.RunPython(set_netuid_to_12, migrations.RunPython.noop),
         migrations.AlterField(
