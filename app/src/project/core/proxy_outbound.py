@@ -27,22 +27,26 @@ HOP_BY_HOP_HEADERS = frozenset(
 # is decompressed or modified before forwarding, since they no longer match the actual bytes sent.
 BODY_ENCODING_HEADERS = frozenset({"content-encoding", "content-length"})
 
-# requests auto-decompresses response.content, so strip encoding metadata before forwarding.
-# Django recalculates Content-Length from the actual content passed to HttpResponse.
-_RESPONSE_HEADERS_TO_STRIP = HOP_BY_HOP_HEADERS | BODY_ENCODING_HEADERS
+# Stripped from headers forwarded in either direction: hop-by-hop headers must never cross a
+# proxy boundary, and body-encoding headers go stale whenever we decompress/modify the body.
+# requests also auto-decompresses response.content, so those go stale there too; Django
+# recalculates Content-Length from the actual content passed to HttpResponse.
+HEADERS_TO_STRIP = HOP_BY_HOP_HEADERS | BODY_ENCODING_HEADERS
 
 
 def decompress_body(data: bytes, headers) -> bytes:
     encoding = headers.get("Content-Encoding", "")
+    if not encoding:
+        return data
     if any(e.strip().lower() in ("gzip", "x-gzip") for e in encoding.split(",")):
         return gzip.decompress(data)
-    return data
+    raise ValueError(f"Unsupported Content-Encoding: {encoding}")
 
 
 def build_forwarded_response(response):
     return HttpResponse(
         status=response.status_code,
-        headers={k: v for k, v in response.headers.items() if k.lower() not in _RESPONSE_HEADERS_TO_STRIP},
+        headers={k: v for k, v in response.headers.items() if k.lower() not in HEADERS_TO_STRIP},
         content=response.content,
     )
 

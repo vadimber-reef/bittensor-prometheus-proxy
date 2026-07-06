@@ -84,6 +84,24 @@ def test_bad_signature_returns_400(rf, keypair):
 
 @pytest.mark.django_db
 @override_settings(BITTENSOR_NETUIDS=[12])
+def test_garbage_signature_returns_400(rf, keypair):
+    Validator.objects.create(public_key=keypair.ss58_address, netuid=12, active=True)
+    data = b"test"
+    request = _signed_request(
+        rf,
+        data=data,
+        hotkey=keypair.ss58_address,
+        netuid=12,
+        signature="not-hex-at-all",  # malformed, not just wrong
+    )
+    result = validate_bittensor_request(request, data)
+    assert isinstance(result, HttpResponse)
+    assert result.status_code == HTTPStatus.BAD_REQUEST
+    assert b"Bad signature" in result.content
+
+
+@pytest.mark.django_db
+@override_settings(BITTENSOR_NETUIDS=[12])
 def test_valid_request_returns_address_and_netuid(rf, keypair):
     Validator.objects.create(public_key=keypair.ss58_address, netuid=12, active=True)
     data = b"test"

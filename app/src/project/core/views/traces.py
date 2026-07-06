@@ -12,7 +12,7 @@ from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
 from ..contact import tempo_contact
 from ..proxy_auth import validate_bittensor_request
 from ..proxy_outbound import (
-    BODY_ENCODING_HEADERS,
+    HEADERS_TO_STRIP,
     TIMEOUT,
     build_bittensor_outbound_headers,
     build_forwarded_response,
@@ -66,7 +66,12 @@ def traces_outbound_proxy(request):
         logger.error(msg)
         return HttpResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, content=msg.encode())
 
-    data = decompress_body(request.body, request.headers)
+    try:
+        data = decompress_body(request.body, request.headers)
+    except Exception as e:
+        msg = f"Failed to decompress data: {e}"
+        logger.debug(msg)
+        return HttpResponse(msg.encode(), status=HTTPStatus.BAD_REQUEST)
 
     write_request, err = _parse_traces(data)
     if err:
@@ -88,7 +93,7 @@ def traces_outbound_proxy(request):
             tempo_remote_url,
             data=modified_data,
             headers={
-                **{k: v for k, v in request.headers.items() if k.lower() not in BODY_ENCODING_HEADERS},
+                **{k: v for k, v in request.headers.items() if k.lower() not in HEADERS_TO_STRIP},
                 **build_bittensor_outbound_headers(modified_data, hotkey, settings.BITTENSOR_NETUID),
             },
             timeout=TIMEOUT,

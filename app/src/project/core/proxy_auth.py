@@ -48,7 +48,11 @@ def validate_bittensor_request(request, data: bytes) -> tuple[str, int] | HttpRe
         return HttpResponse(status=HTTPStatus.FORBIDDEN, content=msg.encode())
 
     sender_keypair = bittensor.Keypair(ss58_address)
-    if not sender_keypair.verify(data, "0x" + signature):
+    try:
+        verified = sender_keypair.verify(data, "0x" + signature)
+    except ValueError:
+        verified = False
+    if not verified:
         msg = "Bad signature."
         logger.debug(msg)
         return HttpResponse(status=HTTPStatus.BAD_REQUEST, content=msg.encode())
