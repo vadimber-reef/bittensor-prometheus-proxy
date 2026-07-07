@@ -1,13 +1,25 @@
+import time
+
 import structlog
 from celery import Task
 from celery.utils.log import get_task_logger
 from django.conf import settings
+from django.core.cache import cache
 
-from compute_horde.utils import get_validators
 from project.celery import app
+from project.core.contact import subtensor_contact
 from project.core.models import Validator
 
 logger = structlog.wrap_logger(get_task_logger(__name__))
+
+LOCK_KEY = "fetch_validators_lock"
+LOCK_TIMEOUT = getattr(settings, "CELERY_TASK_TIME_LIMIT", 300) + 60  # must outlive the hard kill
+FAILURE_ERROR_THRESHOLD = 2 * 3600  # 2 hours in seconds
+LAST_SUCCESS_TTL = 7 * 24 * 3600  # 7 days; refreshed every 5 min on success, guards against stale netuid reuse
+
+
+def last_success_key(netuid: int) -> str:
+    return f"fetch_validators_last_success_{netuid}"
 
 
 def send_to_dead_letter_queue(task: Task, exc, task_id, args, kwargs, einfo):
@@ -27,34 +39,65 @@ def send_to_dead_letter_queue(task: Task, exc, task_id, args, kwargs, einfo):
     task.apply_async(args=args, kwargs=kwargs, queue="dead_letter")
 
 
+def _log_failure(exc: Exception, netuid: int) -> None:
+    last_success = cache.get(last_success_key(netuid))
+    if last_success is None:
+        logger.error("fetch_validators has never succeeded", netuid=netuid, exc_info=exc)
+    elif time.time() - last_success > FAILURE_ERROR_THRESHOLD:
+        logger.error("fetch_validators has been failing for more than 2 hours", netuid=netuid, exc_info=exc)
+    else:
+        logger.info("fetch_validators failed, will retry", netuid=netuid, exc_info=exc)
+
+
 @app.task
 def fetch_validators():
-    debug_validator_keys = set(
-        Validator.objects.filter(debug=True, active=True).values_list("public_key", flat=True)
-    )
+    if not cache.add(LOCK_KEY, 1, timeout=LOCK_TIMEOUT):
+        logger.info("fetch_validators skipped, another worker holds the lock")
+        return
 
-    validators = get_validators(
-        netuid=settings.BITTENSOR_NETUID, network=settings.BITTENSOR_NETWORK
-    )
-    validator_keys = {v.hotkey for v in validators} | debug_validator_keys
+    try:
+        _fetch_validators()
+    finally:
+        cache.delete(LOCK_KEY)
 
-    to_activate = []
-    to_deactivate = []
-    to_create = []
-    for validator in Validator.objects.all():
-        if validator.public_key in validator_keys:
-            to_activate.append(validator)
-            validator.active = True
-            validator_keys.remove(validator.public_key)
-        else:
-            validator.active = False
-            to_deactivate.append(validator)
-    for key in validator_keys:
-        to_create.append(Validator(public_key=key, active=True))
 
-    Validator.objects.bulk_create(to_create)
-    Validator.objects.bulk_update(to_activate + to_deactivate, ["active"])
-    logger.info(
-        f"Fetched validators. Activated: {len(to_activate)}, deactivated: {len(to_deactivate)}, "
-        f"created: {len(to_create)}"
-    )
+def _fetch_validators():
+    contact = subtensor_contact()
+    keys_by_netuid: dict[int, set[str]] = {}
+    for netuid in settings.BITTENSOR_NETUIDS:
+        try:
+            keys_by_netuid[netuid] = set(contact.get_validator_hotkeys(netuid))
+        except Exception as exc:
+            _log_failure(exc, netuid)
+
+    for netuid, validator_keys in keys_by_netuid.items():
+        debug_keys = set(
+            Validator.objects.filter(netuid=netuid, debug=True, active=True).values_list("public_key", flat=True)
+        )
+        validator_keys |= debug_keys
+
+        to_activate: list[Validator] = []
+        to_deactivate: list[Validator] = []
+        to_create: list[Validator] = []
+
+        for validator in Validator.objects.filter(netuid=netuid):
+            if validator.public_key in validator_keys:
+                validator.active = True
+                to_activate.append(validator)
+                validator_keys.discard(validator.public_key)
+            elif not validator.debug:
+                validator.active = False
+                to_deactivate.append(validator)
+
+        to_create = [Validator(public_key=key, netuid=netuid, active=True) for key in validator_keys]
+
+        Validator.objects.bulk_create(to_create)
+        Validator.objects.bulk_update(to_activate + to_deactivate, ["active"])
+        cache.set(last_success_key(netuid), time.time(), timeout=LAST_SUCCESS_TTL)
+        logger.info(
+            "Fetched validators for netuid",
+            netuid=netuid,
+            activated=len(to_activate),
+            deactivated=len(to_deactivate),
+            created=len(to_create),
+        )
