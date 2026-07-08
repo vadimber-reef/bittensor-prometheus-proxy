@@ -183,7 +183,7 @@ services:
       <<: *logging
 
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.15.1
     restart: unless-stopped
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy

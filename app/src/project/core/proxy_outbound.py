@@ -13,6 +13,7 @@ _retries = Retry(
     backoff_factor=0.1,
     status_forcelist=(),
     raise_on_status=False,
+    allowed_methods=False,  # default excludes POST; False retries all methods (safe here since Prometheus remote write is idempotent)
 )
 TIMEOUT = 15
 session = requests.Session()

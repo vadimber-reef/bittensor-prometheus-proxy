@@ -149,5 +149,5 @@ otelcol.exporter.otlphttp "proxy" {
         }
     }
     // traces_endpoint overrides the default /v1/traces auto-append
-    traces_endpoint = sys.env("ON_SITE_PROXY_URL") + "/traces/outbound"
+    traces_endpoint = string.trim_suffix(sys.env("ON_SITE_PROXY_URL"), "/") + "/traces/outbound"
 }
