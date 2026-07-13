@@ -18,7 +18,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/bittensor-church/bittensor-prometheus-proxy
+          images: ghcr.io/vadimber-reef/bittensor-prometheus-proxy
           flavor: |
             latest=false
           tags: |
